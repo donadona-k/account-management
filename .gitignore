@@ -1,0 +1,10 @@
+# clasp のプロジェクト設定（scriptId が入るため個人情報に準じる）
+.clasp.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# エディタ
+.vscode/
+*.swp

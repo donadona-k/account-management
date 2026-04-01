@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 13px; color: #202124; background: #fff; overflow-x: hidden;
+    }
+
+    /* ---- Tabs ---- */
+    .tabs { display: flex; border-bottom: 1px solid #e0e0e0; background: #fff; position: sticky; top: 0; z-index: 10; }
+    .tab-btn {
+      flex: 1; padding: 10px 4px; text-align: center; cursor: pointer;
+      font-size: 11px; font-weight: 600; color: #5f6368;
+      border: none; background: none; border-bottom: 2px solid transparent; transition: all .15s;
+    }
+    .tab-btn.active { color: #1a73e8; border-bottom-color: #1a73e8; }
+    .tab-btn:hover:not(.active) { background: #f1f3f4; color: #202124; }
+    .tab-panel { display: none; padding: 12px; }
+    .tab-panel.active { display: block; }
+
+    /* ---- Buttons ---- */
+    .btn {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 6px 12px; border: none; border-radius: 4px;
+      font-size: 12px; font-weight: 500; cursor: pointer; transition: background .15s;
+    }
+    .btn-primary  { background: #1a73e8; color: #fff; }
+    .btn-primary:hover { background: #1557b0; }
+    .btn-success  { background: #0f9d58; color: #fff; }
+    .btn-success:hover { background: #0b7a44; }
+    .btn-danger   { background: #d93025; color: #fff; }
+    .btn-danger:hover { background: #b31412; }
+    .btn-outline  { background: #fff; color: #1a73e8; border: 1px solid #dadce0; }
+    .btn-outline:hover { background: #e8f0fe; }
+    .btn-sm { padding: 4px 10px; font-size: 11px; }
+    .btn-icon {
+      padding: 4px 6px; background: none; color: #5f6368;
+      border-radius: 4px; font-size: 14px; line-height: 1;
+    }
+    .btn-icon:hover { background: #f1f3f4; color: #202124; }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+    /* ---- Service cards ---- */
+    .service-list { display: flex; flex-direction: column; gap: 8px; }
+    .service-card {
+      border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px 12px; background: #fff;
+      transition: border-color .15s;
+    }
+    .service-card:hover { border-color: #aaa; }
+    .service-card.disabled { background: #f8f9fa; }
+    .sc-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    .sc-name { font-weight: 600; font-size: 13px; color: #202124; }
+    .sc-meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; align-items: center; }
+    .sc-desc { font-size: 11px; color: #5f6368; margin-top: 4px; line-height: 1.4; }
+    .sc-actions { display: flex; gap: 2px; flex-shrink: 0; }
+
+    /* ---- Badges ---- */
+    .badge { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+    .badge-green  { background: #e6f4ea; color: #137333; }
+    .badge-grey   { background: #f1f3f4; color: #5f6368; }
+    .badge-blue   { background: #e8f0fe; color: #1557b0; }
+    .badge-orange { background: #fef7e0; color: #b06000; }
+    .badge-purple { background: #f3e8fd; color: #7b1fa2; }
+    .count-chip   { font-size: 10px; color: #5f6368; background: #f1f3f4; border-radius: 10px; padding: 1px 7px; }
+
+    /* ---- Add/Edit form ---- */
+    .form-card {
+      border: 1px solid #1a73e8; border-radius: 8px; padding: 12px;
+      background: #f8fbff; margin-bottom: 12px;
+    }
+    .form-title { font-weight: 600; font-size: 13px; color: #1a73e8; margin-bottom: 10px; }
+    .form-group { margin-bottom: 8px; }
+    .form-label { display: block; font-size: 11px; color: #5f6368; font-weight: 500; margin-bottom: 3px; }
+    .form-control {
+      width: 100%; padding: 6px 8px; border: 1px solid #dadce0;
+      border-radius: 4px; font-size: 12px; background: #fff; color: #202124;
+    }
+    .form-control:focus { outline: none; border-color: #1a73e8; box-shadow: 0 0 0 2px #d2e3fc; }
+    .form-row { display: flex; gap: 8px; }
+    .form-row .form-group { flex: 1; min-width: 0; }
+    .form-check { display: flex; align-items: center; gap: 6px; }
+    .form-check input[type=checkbox] { width: 14px; height: 14px; cursor: pointer; }
+    .form-hint { font-size: 10px; color: #80868b; margin-top: 2px; }
+    .form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; padding-top: 8px; border-top: 1px solid #dadce0; }
+
+    /* ---- Confirm dialog ---- */
+    .confirm-box {
+      display: none; background: #fff3cd; border: 1px solid #f6bf26;
+      border-radius: 6px; padding: 10px 12px; margin-top: 8px; font-size: 12px;
+    }
+    .confirm-box.show { display: block; }
+    .confirm-actions { display: flex; gap: 6px; margin-top: 8px; }
+
+    /* ---- Account table ---- */
+    .filters { display: flex; gap: 6px; margin-bottom: 8px; }
+    .filters select {
+      flex: 1; padding: 5px 6px; border: 1px solid #dadce0;
+      border-radius: 4px; font-size: 11px; background: #fff;
+    }
+    .table-wrap { overflow-x: auto; border: 1px solid #e0e0e0; border-radius: 6px; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; min-width: 380px; }
+    th {
+      background: #f1f3f4; font-weight: 600; color: #5f6368;
+      padding: 7px 8px; text-align: left; white-space: nowrap;
+      border-bottom: 1px solid #e0e0e0; position: sticky; top: 0;
+    }
+    td { padding: 6px 8px; border-bottom: 1px solid #f1f3f4; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f8f9fa; }
+    .mono { font-family: 'Courier New', monospace; font-size: 10px; }
+
+    /* ---- Settings ---- */
+    .settings-section {
+      border: 1px solid #e0e0e0; border-radius: 8px;
+      padding: 12px; margin-bottom: 12px;
+    }
+    .settings-title {
+      font-size: 10px; font-weight: 700; color: #5f6368;
+      text-transform: uppercase; letter-spacing: .6px; margin-bottom: 10px;
+    }
+    .sync-result { font-size: 11px; color: #5f6368; margin-top: 6px; min-height: 16px; }
+
+    /* ---- Section header ---- */
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .section-title  { font-weight: 600; font-size: 13px; }
+    .result-count   { font-size: 11px; color: #5f6368; margin-bottom: 6px; }
+
+    /* ---- Loading / Empty ---- */
+    .loading { text-align: center; padding: 28px; color: #5f6368; }
+    .spinner {
+      display: inline-block; width: 20px; height: 20px;
+      border: 2px solid #e0e0e0; border-top-color: #1a73e8;
+      border-radius: 50%; animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .empty { text-align: center; padding: 28px; color: #80868b; font-size: 12px; }
+
+    /* ---- Toast ---- */
+    .toast {
+      position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+      background: #323232; color: #fff; padding: 8px 16px; border-radius: 4px;
+      font-size: 12px; z-index: 1000; opacity: 0; transition: opacity .2s;
+      pointer-events: none; white-space: nowrap; max-width: 90%;
+    }
+    .toast.show { opacity: 1; }
+    .toast.err  { background: #c5221f; }
+  </style>
+</head>
+<body>
+
+<!-- Tab bar -->
+<div class="tabs">
+  <button class="tab-btn active"  onclick="switchTab('services')">サービス管理</button>
+  <button class="tab-btn"         onclick="switchTab('accounts')">アカウント一覧</button>
+  <button class="tab-btn"         onclick="switchTab('settings')">設定</button>
+</div>
+
+<!-- ============================================================
+     Tab 1: サービス管理
+============================================================ -->
+<div id="tab-services" class="tab-panel active">
+  <div class="section-header">
+    <span class="section-title">登録済みサービス</span>
+    <button class="btn btn-primary btn-sm" onclick="showAddForm()">＋ 追加</button>
+  </div>
+  <div id="service-form-area"></div>
+  <div id="service-list"><div class="loading"><div class="spinner"></div></div></div>
+</div>
+
+<!-- ============================================================
+     Tab 2: アカウント一覧
+============================================================ -->
+<div id="tab-accounts" class="tab-panel">
+  <div class="filters">
+    <select id="filter-service" onchange="loadAccounts()">
+      <option value="all">全サービス</option>
+    </select>
+    <select id="filter-status" onchange="filterAccounts()">
+      <option value="all">全ステータス</option>
+      <option value="運用中">運用中</option>
+      <option value="削除申請中">削除申請中</option>
+      <option value="削除済み">削除済み</option>
+    </select>
+  </div>
+  <div id="account-list"><div class="empty">サービスを選択してください</div></div>
+</div>
+
+<!-- ============================================================
+     Tab 3: 設定
+============================================================ -->
+<div id="tab-settings" class="tab-panel">
+  <div class="settings-section">
+    <div class="settings-title">通知設定</div>
+    <div class="form-group">
+      <label class="form-label">承認者メールアドレス</label>
+      <input type="text" id="s-approver" class="form-control"
+             placeholder="admin@example.com, leader@example.com">
+      <div class="form-hint">複数の場合はカンマ区切り</div>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-title">Google フォーム連携</div>
+    <div class="form-group">
+      <label class="form-label">新規申請フォーム ID</label>
+      <input type="text" id="s-req-form" class="form-control" placeholder="フォームURLの /d/ 以降の文字列">
+    </div>
+    <div class="form-group">
+      <label class="form-label">削除申請フォーム ID</label>
+      <input type="text" id="s-del-form" class="form-control" placeholder="フォームURLの /d/ 以降の文字列">
+    </div>
+    <div class="form-hint" style="margin-bottom:8px;">
+      フォームURLの形式: https://docs.google.com/forms/d/<strong>【ここがID】</strong>/edit
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="saveSettings()">設定を保存</button>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-title">フォーム同期</div>
+    <p style="font-size:12px;color:#5f6368;margin-bottom:10px;">
+      有効なサービス一覧をフォームの「サービス名」質問の選択肢に反映します。<br>
+      サービスを追加・変更したあとに実行してください。
+    </p>
+    <button class="btn btn-success btn-sm" onclick="syncForms()">▶ フォームに同期する</button>
+    <div class="sync-result" id="sync-result"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// State
+// ============================================================
+let allServices  = [];
+let allAccounts  = [];
+let editingSvcId = null;
+
+// ============================================================
+// Init
+// ============================================================
+window.onload = () => {
+  loadServices();
+  loadSettings();
+};
+
+// ============================================================
+// Tab switching
+// ============================================================
+function switchTab(tab) {
+  const tabs = ['services', 'accounts', 'settings'];
+  document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', tabs[i] === tab));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  if (tab === 'accounts') populateServiceFilter();
+}
+
+// ============================================================
+// Tab 1: Service list
+// ============================================================
+function loadServices() {
+  setHtml('service-list', loading());
+  call('getServices', data => {
+    allServices = data;
+    renderServices();
+  });
+}
+
+function renderServices() {
+  if (!allServices.length) {
+    setHtml('service-list', '<div class="empty">サービスが登録されていません<br>「＋ 追加」から登録してください</div>');
+    return;
+  }
+  setHtml('service-list',
+    '<div class="service-list">' +
+    allServices.map(s => serviceCard(s)).join('') +
+    '</div>'
+  );
+}
+
+function serviceCard(s) {
+  const catBadge  = s.category ? `<span class="badge badge-purple">${esc(s.category)}</span>` : '';
+  const stBadge   = s.enabled
+    ? '<span class="badge badge-green">有効</span>'
+    : '<span class="badge badge-grey">無効</span>';
+  const countChip = `<span class="count-chip">運用中 ${s.activeCount} 件</span>`;
+  const toggleIcon = s.enabled ? '⏸' : '▶';
+  const toggleTitle = s.enabled ? '無効化' : '有効化';
+
+  return `
+  <div class="service-card ${s.enabled ? '' : 'disabled'}" id="card-${s.id}">
+    <div class="sc-header">
+      <div style="min-width:0">
+        <div class="sc-name">${esc(s.name)}</div>
+        <div class="sc-meta">${catBadge}${stBadge}${countChip}</div>
+        ${s.description ? `<div class="sc-desc">${esc(s.description)}</div>` : ''}
+        ${s.accountTypes ? `<div class="sc-desc">種別: ${esc(s.accountTypes)}</div>` : ''}
+      </div>
+      <div class="sc-actions">
+        <button class="btn btn-icon" title="編集" onclick="showEditForm('${s.id}')">✏️</button>
+        <button class="btn btn-icon" title="${toggleTitle}" onclick="toggleSvc('${s.id}', ${!s.enabled})">${toggleIcon}</button>
+        <button class="btn btn-icon" title="削除" onclick="confirmDel('${s.id}')">🗑️</button>
+      </div>
+    </div>
+    <div class="confirm-box" id="confirm-${s.id}">
+      <strong>${esc(s.name)}</strong> を削除しますか？<br>
+      <span style="color:#c5221f;font-size:11px;">運用中アカウントが存在する場合は削除できません</span>
+      <div class="confirm-actions">
+        <button class="btn btn-danger btn-sm" onclick="doDelete('${s.id}')">削除する</button>
+        <button class="btn btn-outline btn-sm" onclick="cancelDel('${s.id}')">キャンセル</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ---- Add / Edit form ----
+function showAddForm() {
+  editingSvcId = null;
+  renderForm(null);
+  document.getElementById('service-form-area').scrollIntoView({ behavior: 'smooth' });
+}
+
+function showEditForm(id) {
+  editingSvcId = id;
+  renderForm(allServices.find(s => s.id === id) || null);
+  document.getElementById('service-form-area').scrollIntoView({ behavior: 'smooth' });
+}
+
+function renderForm(s) {
+  setHtml('service-form-area', `
+  <div class="form-card">
+    <div class="form-title">${s ? 'サービスを編集' : '新しいサービスを追加'}</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">サービス名 <span style="color:red">*</span></label>
+        <input id="f-name" class="form-control" value="${s ? esc(s.name) : ''}" placeholder="例: Slack">
+      </div>
+      <div class="form-group">
+        <label class="form-label">カテゴリ</label>
+        <input id="f-cat" class="form-control" value="${s ? esc(s.category) : ''}" placeholder="例: コラボレーション">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">説明</label>
+      <input id="f-desc" class="form-control" value="${s ? esc(s.description) : ''}" placeholder="サービスの用途など">
+    </div>
+    <div class="form-group">
+      <label class="form-label">アカウント種別（カンマ区切り）</label>
+      <input id="f-types" class="form-control" value="${s ? esc(s.accountTypes) : ''}" placeholder="例: 一般,管理者,閲覧専用">
+      <div class="form-hint">フォームのドロップダウンに使用します</div>
+    </div>
+    <div class="form-check">
+      <input type="checkbox" id="f-enabled" ${!s || s.enabled ? 'checked' : ''}>
+      <label for="f-enabled" style="font-size:12px;">有効にする（フォームの選択肢に含める）</label>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-outline btn-sm" onclick="hideForm()">キャンセル</button>
+      <button class="btn btn-primary btn-sm" onclick="saveService()">保存</button>
+    </div>
+  </div>`);
+}
+
+function hideForm() {
+  setHtml('service-form-area', '');
+  editingSvcId = null;
+}
+
+function saveService() {
+  const name = val('f-name');
+  if (!name) { toast('サービス名は必須です', true); return; }
+
+  const params = {
+    name,
+    category:     val('f-cat'),
+    description:  val('f-desc'),
+    accountTypes: val('f-types'),
+    enabled:      document.getElementById('f-enabled').checked,
+  };
+
+  const fn = editingSvcId ? 'updateService' : 'addService';
+  const args = editingSvcId ? [editingSvcId, params] : [params];
+
+  callWithArgs(fn, args, result => {
+    if (result.ok) {
+      toast(editingSvcId ? 'サービスを更新しました' : 'サービスを追加しました');
+      hideForm();
+      loadServices();
+    } else {
+      toast(result.error || 'エラーが発生しました', true);
+    }
+  });
+}
+
+function toggleSvc(id, enabled) {
+  call2('toggleServiceEnabled', id, enabled, result => {
+    if (result.ok) {
+      toast(enabled ? '有効化しました' : '無効化しました');
+      loadServices();
+    } else {
+      toast(result.error || 'エラー', true);
+    }
+  });
+}
+
+function confirmDel(id) {
+  document.querySelectorAll('.confirm-box').forEach(el => el.classList.remove('show'));
+  document.getElementById('confirm-' + id).classList.add('show');
+}
+function cancelDel(id) { document.getElementById('confirm-' + id).classList.remove('show'); }
+
+function doDelete(id) {
+  call('deleteService', result => {
+    if (result.ok) {
+      toast('サービスを削除しました');
+      loadServices();
+    } else {
+      toast(result.error, true);
+    }
+  }, id);
+}
+
+// ============================================================
+// Tab 2: Accounts
+// ============================================================
+function populateServiceFilter() {
+  const sel = document.getElementById('filter-service');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="all">全サービス</option>' +
+    allServices.map(s => `<option value="${s.id}"${cur===s.id?' selected':''}>${esc(s.name)}</option>`).join('');
+  if (cur !== 'all') sel.value = cur;
+}
+
+function loadAccounts() {
+  const svcId = document.getElementById('filter-service').value;
+  setHtml('account-list', loading());
+  call('getAccountsByService', data => {
+    allAccounts = data;
+    filterAccounts();
+  }, svcId);
+}
+
+function filterAccounts() {
+  const status   = document.getElementById('filter-status').value;
+  const filtered = status === 'all' ? allAccounts : allAccounts.filter(a => a.status === status);
+  renderAccountTable(filtered);
+}
+
+function renderAccountTable(accounts) {
+  if (!accounts.length) {
+    setHtml('account-list', '<div class="empty">該当するアカウントがありません</div>');
+    return;
+  }
+  const rows = accounts.map(a => `<tr>
+    <td class="mono">${esc(a.accountId)}</td>
+    <td>${esc(a.serviceName)}</td>
+    <td>${esc(a.userName)}</td>
+    <td>${esc(a.department)}</td>
+    <td>${statusBadge(a.status)}</td>
+    <td style="white-space:nowrap">${esc(a.createdAt)}</td>
+  </tr>`).join('');
+
+  setHtml('account-list', `
+    <div class="result-count">${accounts.length} 件</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>アカウントID</th><th>サービス</th><th>利用者名</th>
+          <th>部署</th><th>ステータス</th><th>登録日</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`);
+}
+
+function statusBadge(s) {
+  if (s === '運用中')    return '<span class="badge badge-green">運用中</span>';
+  if (s === '削除申請中') return '<span class="badge badge-orange">削除申請中</span>';
+  if (s === '削除済み')  return '<span class="badge badge-grey">削除済み</span>';
+  return `<span class="badge badge-grey">${esc(s)}</span>`;
+}
+
+// ============================================================
+// Tab 3: Settings
+// ============================================================
+function loadSettings() {
+  call('getSettings', s => {
+    set('s-approver', s.approverEmails || '');
+    set('s-req-form', s.requestFormId  || '');
+    set('s-del-form', s.deleteFormId   || '');
+  });
+}
+
+function saveSettings() {
+  const settings = {
+    approverEmails: val('s-approver'),
+    requestFormId:  val('s-req-form'),
+    deleteFormId:   val('s-del-form'),
+  };
+  call('saveSettings', result => {
+    if (result.ok) toast('設定を保存しました');
+    else toast(result.error || 'エラー', true);
+  }, settings);
+}
+
+function syncForms() {
+  setHtml('sync-result', '同期中...');
+  call('syncServicesToForm', result => {
+    if (result.ok) {
+      const now = new Date().toLocaleString('ja-JP');
+      setHtml('sync-result', `✓ 同期完了（${now}）: ${result.updatedCount} 項目を更新`);
+      toast('フォームの選択肢を更新しました');
+    } else {
+      setHtml('sync-result', '✗ ' + (result.error || '不明なエラー'));
+      toast('同期に失敗しました', true);
+    }
+  });
+}
+
+// ============================================================
+// google.script.run helpers
+// ============================================================
+function call(fn, onSuccess, ...args) {
+  let runner = google.script.run
+    .withSuccessHandler(onSuccess)
+    .withFailureHandler(err => toast(err.message || 'エラー', true));
+  runner[fn](...args);
+}
+
+function call2(fn, a, b, onSuccess) {
+  google.script.run
+    .withSuccessHandler(onSuccess)
+    .withFailureHandler(err => toast(err.message, true))
+    [fn](a, b);
+}
+
+function callWithArgs(fn, args, onSuccess) {
+  google.script.run
+    .withSuccessHandler(onSuccess)
+    .withFailureHandler(err => toast(err.message, true))
+    [fn](...args);
+}
+
+// ============================================================
+// DOM helpers
+// ============================================================
+function setHtml(id, html) { document.getElementById(id).innerHTML = html; }
+function val(id)  { return document.getElementById(id).value.trim(); }
+function set(id, v) { document.getElementById(id).value = v; }
+function loading() { return '<div class="loading"><div class="spinner"></div></div>'; }
+function esc(str) {
+  return String(str || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let toastTimer;
+function toast(msg, isErr = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (isErr ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
