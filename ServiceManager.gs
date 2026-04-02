@@ -16,6 +16,44 @@ const SVC_COL = {
 };
 
 // ============================================================
+// フォームトリガーをスクリプトから登録（手動で一度だけ実行）
+// ============================================================
+function setupFormTriggers() {
+  const props         = PropertiesService.getScriptProperties();
+  const requestFormId = props.getProperty("REQUEST_FORM_ID");
+  const deleteFormId  = props.getProperty("DELETE_FORM_ID");
+
+  if (!requestFormId && !deleteFormId) {
+    console.log("エラー: フォームIDが設定されていません。管理画面の設定タブで登録してください。");
+    return;
+  }
+
+  // 既存のフォームトリガーを削除（重複防止）
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (t.getHandlerFunction() === "onFormSubmit" ||
+        t.getHandlerFunction() === "onDeleteFormSubmit") {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+
+  if (requestFormId) {
+    ScriptApp.newTrigger("onFormSubmit")
+      .forForm(requestFormId)
+      .onFormSubmit()
+      .create();
+    console.log("新規申請フォームのトリガーを登録しました");
+  }
+
+  if (deleteFormId) {
+    ScriptApp.newTrigger("onDeleteFormSubmit")
+      .forForm(deleteFormId)
+      .onFormSubmit()
+      .create();
+    console.log("削除申請フォームのトリガーを登録しました");
+  }
+}
+
+// ============================================================
 // メニュー & サイドバー
 // ============================================================
 function onOpen() {
@@ -47,13 +85,13 @@ function getServices() {
   const data = sheet.getDataRange().getValues();
   if (data.length <= 1) return [];
 
-  // アカウント台帳から各サービスの運用中アカウント数を集計
-  const accountSheet = ss.getSheetByName(CONFIG.SHEET_ACCOUNTS);
-  const accountData  = accountSheet ? accountSheet.getDataRange().getValues().slice(1) : [];
+  // サービス利用台帳から各サービスの運用中アカウント数を集計
+  const usageSheet = ss.getSheetByName(CONFIG.SHEET_SERVICE_USAGE);
+  const usageData  = usageSheet ? usageSheet.getDataRange().getValues().slice(1) : [];
   const countMap = {};
-  accountData.forEach(row => {
-    const svcId  = String(row[CONFIG.ACC_COL_SERVICE_ID - 1]);
-    const status = row[CONFIG.ACC_COL_STATUS - 1];
+  usageData.forEach(row => {
+    const svcId  = String(row[CONFIG.USG_COL_SERVICE_ID - 1]);
+    const status = row[CONFIG.USG_COL_STATUS - 1];
     if (status === CONFIG.ACCOUNT_STATUS_ACTIVE) {
       countMap[svcId] = (countMap[svcId] || 0) + 1;
     }
@@ -185,29 +223,28 @@ function deleteService(serviceId) {
 // アカウント一覧（Sidebar から呼ばれる）
 // ============================================================
 function getAccountsByService(serviceId) {
-  const ss           = SpreadsheetApp.getActiveSpreadsheet();
-  const accountSheet = ss.getSheetByName(CONFIG.SHEET_ACCOUNTS);
-  if (!accountSheet) return [];
+  const ss         = SpreadsheetApp.getActiveSpreadsheet();
+  const usageSheet = ss.getSheetByName(CONFIG.SHEET_SERVICE_USAGE);
+  if (!usageSheet) return [];
 
-  const data = accountSheet.getDataRange().getValues();
+  const data = usageSheet.getDataRange().getValues();
   if (data.length <= 1) return [];
 
   return data.slice(1)
-    .filter(row => serviceId === "all" || String(row[CONFIG.ACC_COL_SERVICE_ID - 1]) === serviceId)
+    .filter(row => serviceId === "all" || String(row[CONFIG.USG_COL_SERVICE_ID - 1]) === serviceId)
     .map(row => ({
-      accountId:   String(row[CONFIG.ACC_COL_ACCOUNT_ID - 1]),
-      serviceId:   String(row[CONFIG.ACC_COL_SERVICE_ID - 1]),
-      serviceName: String(row[CONFIG.ACC_COL_SERVICE_NAME - 1]),
-      accountType: String(row[CONFIG.ACC_COL_ACCOUNT_TYPE - 1]),
-      userName:    String(row[CONFIG.ACC_COL_USER_NAME - 1]),
-      department:  String(row[CONFIG.ACC_COL_DEPT - 1]),
-      email:       String(row[CONFIG.ACC_COL_EMAIL - 1]),
-      startDate:   _fmtDate(row[CONFIG.ACC_COL_START_DATE - 1]),
-      purpose:     String(row[CONFIG.ACC_COL_PURPOSE - 1]),
-      requestId:   String(row[CONFIG.ACC_COL_REQUEST_ID - 1]),
-      createdAt:   _fmtDate(row[CONFIG.ACC_COL_CREATED_AT - 1]),
-      status:      String(row[CONFIG.ACC_COL_STATUS - 1]),
-      deletedAt:   _fmtDate(row[CONFIG.ACC_COL_DELETED_AT - 1]),
+      usageId:     String(row[CONFIG.USG_COL_USAGE_ID - 1]),
+      userId:      String(row[CONFIG.USG_COL_USER_ID - 1]),
+      userName:    String(row[CONFIG.USG_COL_USER_NAME - 1]),
+      serviceId:   String(row[CONFIG.USG_COL_SERVICE_ID - 1]),
+      serviceName: String(row[CONFIG.USG_COL_SERVICE_NAME - 1]),
+      accountType: String(row[CONFIG.USG_COL_ACCOUNT_TYPE - 1]),
+      startDate:   _fmtDate(row[CONFIG.USG_COL_START_DATE - 1]),
+      purpose:     String(row[CONFIG.USG_COL_PURPOSE - 1]),
+      requestId:   String(row[CONFIG.USG_COL_REQUEST_ID - 1]),
+      createdAt:   _fmtDate(row[CONFIG.USG_COL_CREATED_AT - 1]),
+      status:      String(row[CONFIG.USG_COL_STATUS - 1]),
+      deletedAt:   _fmtDate(row[CONFIG.USG_COL_DELETED_AT - 1]),
     }));
 }
 
