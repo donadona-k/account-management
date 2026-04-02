@@ -170,7 +170,7 @@ function onFormSubmit(e) {
   const requestId    = _generateId("REQ");
 
   const applicantName  = responses["申請者名"]           || "";
-  const applicantEmail = responses["申請者メール（社内）"]   || "";
+  const applicantEmail = e.response.getRespondentEmail() || "";  // ログイン情報から自動取得
   const targetName     = responses["対象者名"]            || "";
   const targetDept     = responses["対象者部署"]           || "";
   const targetEmail    = responses["対象者メール（社内）"]   || "";
@@ -207,7 +207,7 @@ function onDeleteFormSubmit(e) {
   const deleteReqId = _generateId("DEL");
 
   const applicantName  = responses["申請者名"]           || "";
-  const applicantEmail = responses["申請者メール（社内）"]   || "";
+  const applicantEmail = e.response.getRespondentEmail() || "";  // ログイン情報から自動取得
   const targetEmail    = (responses["対象者メールアドレス"] || "").trim();
   const deleteReason   = responses["削除理由"]           || "";
 
