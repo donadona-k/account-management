@@ -416,6 +416,43 @@ function setupStaffMasterSpreadsheet() {
 // ============================================================
 // 既存サービスマスタに承認者列を追加（一度だけ手動実行）
 // ============================================================
+// 削除申請一覧シートに「削除種別」「削除対象利用ID」列を追加（一度だけ手動実行）
+// 旧スキーマ（11列）→ 新スキーマ（13列）へのマイグレーション
+// ============================================================
+function migrateDeleteRequestSheet() {
+  const ss    = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEET_DELETE_REQUESTS);
+  if (!sheet) { console.log("削除申請一覧シートが見つかりません"); return; }
+
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  if (headers.includes("削除種別")) {
+    console.log("削除種別列はすでに存在します");
+    return;
+  }
+
+  // H列（8列目）の前に「削除種別」を挿入し、続けて「削除対象利用ID」を挿入
+  sheet.insertColumnBefore(8);
+  sheet.getRange(1, 8)
+    .setValue("削除種別")
+    .setBackground("#d93025").setFontColor("#ffffff").setFontWeight("bold");
+  sheet.setColumnWidth(8, 100);
+
+  sheet.insertColumnBefore(9);
+  sheet.getRange(1, 9)
+    .setValue("削除対象利用ID")
+    .setBackground("#d93025").setFontColor("#ffffff").setFontWeight("bold");
+  sheet.setColumnWidth(9, 200);
+
+  // ステータス列（新11列目）のドロップダウンを再設定
+  const statusRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList([CONFIG.STATUS_PENDING, CONFIG.STATUS_APPROVED, CONFIG.STATUS_REJECTED])
+    .setAllowInvalid(false).build();
+  sheet.getRange(2, 11, 1000).setDataValidation(statusRule);
+
+  console.log("削除申請一覧シートのマイグレーションが完了しました（11列 → 13列）");
+}
+
+// ============================================================
 function migrateAddApproverColumn() {
   const ss    = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(CONFIG.SHEET_SERVICES);
