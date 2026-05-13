@@ -5,15 +5,28 @@
 
 // サービスマスタの列インデックス（1始まり）
 const SVC_COL = {
-  ID:            1,
-  NAME:          2,
-  CATEGORY:      3,
-  DESCRIPTION:   4,
-  ACCOUNT_TYPES: 5,  // カンマ区切り文字列
-  ENABLED:       6,
-  CREATED_AT:    7,
-  UPDATED_AT:    8,
+  ID:              1,
+  NAME:            2,
+  CATEGORY:        3,
+  DESCRIPTION:     4,
+  ACCOUNT_TYPES:   5,
+  APPROVER_EMAILS: 6,  // サービス固有の承認者（空の場合グローバル設定を使用）
+  ENABLED:         7,
+  CREATED_AT:      8,
+  UPDATED_AT:      9,
 };
+
+// ============================================================
+// 旧フォームトリガーを削除（Web App 移行後に一度だけ実行）
+// ============================================================
+function cleanupFormTriggers() {
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (["onFormSubmit", "onDeleteFormSubmit"].includes(t.getHandlerFunction())) {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+  console.log("旧フォームトリガーを削除しました");
+}
 
 // ============================================================
 // フォームトリガーをスクリプトから登録（手動で一度だけ実行）
@@ -98,16 +111,17 @@ function getServices() {
   });
 
   return data.slice(1).map(row => ({
-    id:           String(row[SVC_COL.ID - 1]),
-    name:         String(row[SVC_COL.NAME - 1]),
-    category:     String(row[SVC_COL.CATEGORY - 1] || ""),
-    description:  String(row[SVC_COL.DESCRIPTION - 1] || ""),
-    accountTypes: String(row[SVC_COL.ACCOUNT_TYPES - 1] || ""),
-    enabled:      row[SVC_COL.ENABLED - 1] === true || row[SVC_COL.ENABLED - 1] === "TRUE",
-    createdAt:    row[SVC_COL.CREATED_AT - 1]
-                    ? Utilities.formatDate(new Date(row[SVC_COL.CREATED_AT - 1]), "Asia/Tokyo", "yyyy/MM/dd")
-                    : "",
-    activeCount:  countMap[String(row[SVC_COL.ID - 1])] || 0,
+    id:             String(row[SVC_COL.ID - 1]),
+    name:           String(row[SVC_COL.NAME - 1]),
+    category:       String(row[SVC_COL.CATEGORY - 1]        || ""),
+    description:    String(row[SVC_COL.DESCRIPTION - 1]     || ""),
+    accountTypes:   String(row[SVC_COL.ACCOUNT_TYPES - 1]   || ""),
+    approverEmails: String(row[SVC_COL.APPROVER_EMAILS - 1] || ""),
+    enabled:        row[SVC_COL.ENABLED - 1] === true || row[SVC_COL.ENABLED - 1] === "TRUE",
+    createdAt:      row[SVC_COL.CREATED_AT - 1]
+                      ? Utilities.formatDate(new Date(row[SVC_COL.CREATED_AT - 1]), "Asia/Tokyo", "yyyy/MM/dd")
+                      : "",
+    activeCount:    countMap[String(row[SVC_COL.ID - 1])] || 0,
   }));
 }
 
@@ -120,26 +134,36 @@ function getServiceByName(name) {
   return getServices().find(s => s.name === name) || null;
 }
 
+// サービス固有の承認者メールを返す（未設定ならグローバル設定にフォールバック）
+function getApproverEmailsForService(serviceName) {
+  const svc = getServiceByName(serviceName);
+  if (svc && svc.approverEmails && svc.approverEmails.trim()) {
+    return svc.approverEmails.trim();
+  }
+  return PropertiesService.getScriptProperties().getProperty("APPROVER_EMAILS")
+    || CONFIG.APPROVER_EMAILS_FALLBACK;
+}
+
 // ============================================================
 // サービス追加・更新・削除（Sidebar から呼ばれる）
 // ============================================================
 function addService(params) {
   try {
-    const { name, category, description, accountTypes, enabled } = params;
+    const { name, category, description, accountTypes, approverEmails, enabled } = params;
     if (!name) return { ok: false, error: "サービス名は必須です" };
 
     const ss    = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName(CONFIG.SHEET_SERVICES);
     if (!sheet) return { ok: false, error: "サービスマスタシートが見つかりません" };
 
-    // 重複チェック
     const existing = getServices().find(s => s.name === name);
     if (existing) return { ok: false, error: `「${name}」はすでに登録されています` };
 
     const serviceId = _generateId("SVC");
     const now = new Date();
     sheet.appendRow([serviceId, name, category || "", description || "",
-                     accountTypes || "", enabled !== false, now, now]);
+                     accountTypes || "", approverEmails || "",
+                     enabled !== false, now, now]);
 
     return { ok: true, serviceId };
   } catch(e) {
@@ -149,7 +173,7 @@ function addService(params) {
 
 function updateService(serviceId, params) {
   try {
-    const { name, category, description, accountTypes, enabled } = params;
+    const { name, category, description, accountTypes, approverEmails, enabled } = params;
     if (!name) return { ok: false, error: "サービス名は必須です" };
 
     const row = _getServiceRow(serviceId);
@@ -158,7 +182,6 @@ function updateService(serviceId, params) {
     const ss    = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName(CONFIG.SHEET_SERVICES);
 
-    // 名前の重複チェック（自分以外）
     const duplicate = getServices().find(s => s.name === name && s.id !== serviceId);
     if (duplicate) return { ok: false, error: `「${name}」は別のサービスで使用されています` };
 
@@ -166,6 +189,7 @@ function updateService(serviceId, params) {
     sheet.getRange(row, SVC_COL.CATEGORY).setValue(category || "");
     sheet.getRange(row, SVC_COL.DESCRIPTION).setValue(description || "");
     sheet.getRange(row, SVC_COL.ACCOUNT_TYPES).setValue(accountTypes || "");
+    sheet.getRange(row, SVC_COL.APPROVER_EMAILS).setValue(approverEmails || "");
     sheet.getRange(row, SVC_COL.ENABLED).setValue(enabled !== false);
     sheet.getRange(row, SVC_COL.UPDATED_AT).setValue(new Date());
 
@@ -310,9 +334,11 @@ function syncServicesToForm() {
 function getSettings() {
   const props = PropertiesService.getScriptProperties();
   return {
-    approverEmails: props.getProperty("APPROVER_EMAILS") || CONFIG.APPROVER_EMAILS_FALLBACK,
-    requestFormId:  props.getProperty("REQUEST_FORM_ID") || "",
-    deleteFormId:   props.getProperty("DELETE_FORM_ID")  || "",
+    approverEmails: props.getProperty("APPROVER_EMAILS")  || CONFIG.APPROVER_EMAILS_FALLBACK,
+    requestFormId:  props.getProperty("REQUEST_FORM_ID")  || "",
+    deleteFormId:   props.getProperty("DELETE_FORM_ID")   || "",
+    staffMasterId:  props.getProperty("STAFF_MASTER_ID")  || "",
+    staffMasterUrl: _getStaffMasterUrl(),
   };
 }
 
@@ -330,6 +356,85 @@ function saveSettings(settings) {
   }
 }
 
+function _getStaffMasterUrl() {
+  const id = PropertiesService.getScriptProperties().getProperty("STAFF_MASTER_ID");
+  if (!id) return "";
+  try { return SpreadsheetApp.openById(id).getUrl(); } catch(e) { return ""; }
+}
+
+// ============================================================
+// 社員マスタ スプレッドシートを新規作成してIDを保存（一度だけ手動実行）
+// 実行後、表示されたURLをHRと管理者にのみ共有すること
+// ============================================================
+function setupStaffMasterSpreadsheet() {
+  const existing = PropertiesService.getScriptProperties().getProperty("STAFF_MASTER_ID");
+  if (existing) {
+    try {
+      const url = SpreadsheetApp.openById(existing).getUrl();
+      console.log("社員マスタはすでに設定されています: " + url);
+      return;
+    } catch(e) { /* IDが無効なら再作成 */ }
+  }
+
+  const ss    = SpreadsheetApp.create("社員マスタ");
+  const sheet = ss.getSheets()[0];
+  sheet.setName(EMP.SHEET_NAME);
+
+  const headers = [
+    "社員番号", "氏名", "部署", "メールアドレス", "区分",
+    "性別", "生年月日", "入社日", "退社日", "ステータス"
+  ];
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+    .setBackground("#4a148c").setFontColor("#ffffff").setFontWeight("bold");
+  sheet.setFrozenRows(1);
+
+  // ドロップダウン
+  sheet.getRange(2, EMP.COL_CATEGORY, 1000)
+    .setDataValidation(SpreadsheetApp.newDataValidation()
+      .requireValueInList(EMP.CATEGORIES).setAllowInvalid(false).build());
+  sheet.getRange(2, EMP.COL_GENDER, 1000)
+    .setDataValidation(SpreadsheetApp.newDataValidation()
+      .requireValueInList(EMP.GENDERS).setAllowInvalid(false).build());
+  sheet.getRange(2, EMP.COL_STATUS, 1000)
+    .setDataValidation(SpreadsheetApp.newDataValidation()
+      .requireValueInList(EMP.STATUSES).setAllowInvalid(false).build());
+
+  // 列幅
+  sheet.setColumnWidth(EMP.COL_EMP_NO, 100);
+  sheet.setColumnWidth(EMP.COL_NAME,   120);
+  sheet.setColumnWidth(EMP.COL_DEPT,   120);
+  sheet.setColumnWidth(EMP.COL_EMAIL,  220);
+  sheet.setColumnWidth(EMP.COL_CATEGORY, 100);
+
+  PropertiesService.getScriptProperties().setProperty("STAFF_MASTER_ID", ss.getId());
+
+  console.log("✅ 社員マスタを作成しました");
+  console.log("URL: " + ss.getUrl());
+  console.log("⚠️ このスプレッドシートの共有設定を「HRと管理者のみ」に変更してください");
+}
+
+// ============================================================
+// 既存サービスマスタに承認者列を追加（一度だけ手動実行）
+// ============================================================
+function migrateAddApproverColumn() {
+  const ss    = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEET_SERVICES);
+  if (!sheet) { console.log("サービスマスタシートが見つかりません"); return; }
+
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  if (headers.includes("承認者メール")) {
+    console.log("承認者メール列はすでに存在します");
+    return;
+  }
+
+  sheet.insertColumnBefore(SVC_COL.APPROVER_EMAILS);
+  sheet.getRange(1, SVC_COL.APPROVER_EMAILS)
+    .setValue("承認者メール")
+    .setBackground("#6200ea").setFontColor("#ffffff").setFontWeight("bold");
+  sheet.setColumnWidth(SVC_COL.APPROVER_EMAILS, 200);
+  console.log("承認者メール列を追加しました");
+}
+
 // ============================================================
 // サービスマスタシートのセットアップ（setup() から呼ばれる）
 // ============================================================
@@ -339,7 +444,7 @@ function _setupServiceMasterSheet(ss) {
 
   const headers = [
     "サービスID", "サービス名", "カテゴリ",
-    "説明", "アカウント種別", "有効", "登録日時", "更新日時"
+    "説明", "アカウント種別", "承認者メール", "有効", "登録日時", "更新日時"
   ];
   _writeHeader(sheet, headers, "#6200ea");
 
@@ -357,7 +462,7 @@ function _setupServiceMasterSheet(ss) {
     sheet.appendRow([
       _generateId("SVC"), "Google Workspace", "コラボレーション",
       "Google の各種サービス（Gmail, Drive, Meet など）",
-      "一般,管理者", true, now, now
+      "一般,管理者", "", true, now, now
     ]);
   }
 

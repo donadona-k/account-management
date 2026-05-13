@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>アカウント申請</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Hiragino Sans", "Meiryo", sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      padding: 24px 16px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.15);
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 28px 32px;
+    }
+    h1 { font-size: 1.4rem; color: #1a73e8; margin-bottom: 20px; }
+    h2 { font-size: 1rem; color: #555; border-left: 4px solid #1a73e8; padding-left: 10px; margin: 24px 0 12px; }
+    label { display: block; font-size: .85rem; color: #555; margin-bottom: 4px; }
+    input[type=text], input[type=email], input[type=date], select, textarea {
+      width: 100%; padding: 8px 10px;
+      border: 1px solid #ccc; border-radius: 4px;
+      font-size: .95rem; margin-bottom: 12px;
+    }
+    input[readonly] { background: #f0f4ff; color: #444; cursor: default; }
+    .row { display: flex; gap: 12px; }
+    .row > div { flex: 1; }
+
+    /* サービスカード */
+    .svc-list { display: flex; flex-direction: column; gap: 10px; }
+    .svc-item {
+      border: 1px solid #e0e0e0; border-radius: 6px;
+      padding: 10px 14px; transition: border-color .15s;
+    }
+    .svc-item.selected { border-color: #1a73e8; background: #f0f6ff; }
+    .svc-header { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+    .svc-header input[type=checkbox] { width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; }
+    .svc-name { font-weight: bold; font-size: .95rem; }
+    .svc-detail {
+      display: none; margin-top: 10px;
+      padding-top: 10px; border-top: 1px solid #e0e0e0;
+    }
+    .svc-item.selected .svc-detail { display: block; }
+    .svc-detail label { margin-bottom: 4px; }
+    .svc-detail input, .svc-detail select { margin-bottom: 8px; }
+
+    .btn {
+      display: block; width: 100%; padding: 12px;
+      background: #1a73e8; color: #fff;
+      border: none; border-radius: 6px; font-size: 1rem;
+      cursor: pointer; margin-top: 20px;
+      transition: background .15s;
+    }
+    .btn:hover { background: #1557b0; }
+    .btn:disabled { background: #aaa; cursor: default; }
+
+    .msg { margin-top: 16px; padding: 12px; border-radius: 6px; font-size: .9rem; display: none; }
+    .msg.ok  { background: #e6f4ea; color: #137333; }
+    .msg.err { background: #fce8e6; color: #c5221f; }
+    .loading { color: #888; font-size: .9rem; margin-top: 12px; display: none; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>アカウント申請</h1>
+
+  <h2>申請者情報</h2>
+  <label>メールアドレス</label>
+  <input type="email" id="applicantEmail" readonly>
+  <div class="row">
+    <div>
+      <label>氏名</label>
+      <input type="text" id="applicantName" placeholder="氏名">
+    </div>
+    <div>
+      <label>部署</label>
+      <input type="text" id="applicantDept" placeholder="部署">
+    </div>
+  </div>
+
+  <h2>対象者情報</h2>
+  <div class="row">
+    <div>
+      <label>氏名 <span style="color:red">*</span></label>
+      <input type="text" id="targetName" placeholder="山田 太郎" required>
+    </div>
+    <div>
+      <label>部署</label>
+      <input type="text" id="targetDept" placeholder="営業部">
+    </div>
+  </div>
+  <label>メールアドレス <span style="color:red">*</span></label>
+  <input type="email" id="targetEmail" placeholder="taro@example.com" required>
+
+  <h2>申請するサービス（複数選択可）</h2>
+  <div class="svc-list" id="svcList">
+    <p style="color:#888;font-size:.9rem">サービス一覧を読み込み中...</p>
+  </div>
+
+  <button class="btn" id="submitBtn" disabled>申請する</button>
+  <p class="loading" id="loading">送信中...</p>
+  <div class="msg" id="msg"></div>
+</div>
+
+<script>
+  // ページロード時：申請者情報 + サービス一覧を取得
+  document.addEventListener("DOMContentLoaded", () => {
+    google.script.run
+      .withSuccessHandler(info => {
+        document.getElementById("applicantEmail").value = info.email || "";
+        document.getElementById("applicantName").value  = info.name  || "";
+        document.getElementById("applicantDept").value  = info.dept  || "";
+        if (!info.found) {
+          document.getElementById("applicantName").removeAttribute("readonly");
+          document.getElementById("applicantDept").removeAttribute("readonly");
+        } else {
+          document.getElementById("applicantName").setAttribute("readonly", true);
+          document.getElementById("applicantDept").setAttribute("readonly", true);
+        }
+      })
+      .withFailureHandler(err => console.error(err))
+      .getApplicantInfo();
+
+    google.script.run
+      .withSuccessHandler(renderServices)
+      .withFailureHandler(err => {
+        document.getElementById("svcList").innerHTML =
+          '<p style="color:#c5221f">サービス一覧の取得に失敗しました</p>';
+      })
+      .getActiveServices();
+  });
+
+  function renderServices(services) {
+    const list = document.getElementById("svcList");
+    if (!services || services.length === 0) {
+      list.innerHTML = '<p style="color:#888;font-size:.9rem">有効なサービスがありません</p>';
+      return;
+    }
+    list.innerHTML = "";
+    services.forEach(svc => {
+      const types = svc.accountTypes
+        ? svc.accountTypes.split(",").map(s => s.trim()).filter(Boolean)
+        : ["一般"];
+
+      const typeOptions = types.map(t => `<option>${t}</option>`).join("");
+
+      const item = document.createElement("div");
+      item.className = "svc-item";
+      item.dataset.svcId   = svc.id;
+      item.dataset.svcName = svc.name;
+      item.innerHTML = `
+        <label class="svc-header">
+          <input type="checkbox" class="svc-check">
+          <span class="svc-name">${svc.name}</span>
+        </label>
+        <div class="svc-detail">
+          <label>アカウント種別</label>
+          <select class="svc-type">${typeOptions}</select>
+          <label>用途・理由 <span style="color:red">*</span></label>
+          <input type="text" class="svc-purpose" placeholder="業務上の利用目的を記入してください">
+          <label>利用開始希望日</label>
+          <input type="date" class="svc-start">
+        </div>`;
+      list.appendChild(item);
+
+      item.querySelector(".svc-check").addEventListener("change", e => {
+        item.classList.toggle("selected", e.target.checked);
+        updateSubmitBtn();
+      });
+    });
+    document.getElementById("submitBtn").disabled = false;
+  }
+
+  function updateSubmitBtn() {
+    const anyChecked = [...document.querySelectorAll(".svc-check")].some(c => c.checked);
+    document.getElementById("submitBtn").disabled = !anyChecked;
+  }
+
+  document.getElementById("submitBtn").addEventListener("click", () => {
+    const applicantEmail = document.getElementById("applicantEmail").value.trim();
+    const applicantName  = document.getElementById("applicantName").value.trim();
+    const applicantDept  = document.getElementById("applicantDept").value.trim();
+    const targetName     = document.getElementById("targetName").value.trim();
+    const targetDept     = document.getElementById("targetDept").value.trim();
+    const targetEmail    = document.getElementById("targetEmail").value.trim();
+
+    if (!targetName || !targetEmail) {
+      showMsg("対象者の氏名とメールアドレスを入力してください", false);
+      return;
+    }
+
+    const items = [...document.querySelectorAll(".svc-item.selected")];
+    if (items.length === 0) {
+      showMsg("サービスを1つ以上選択してください", false);
+      return;
+    }
+
+    let valid = true;
+    const services = items.map(item => {
+      const purpose = item.querySelector(".svc-purpose").value.trim();
+      if (!purpose) { valid = false; }
+      return {
+        serviceId:   item.dataset.svcId,
+        serviceName: item.dataset.svcName,
+        accountType: item.querySelector(".svc-type").value,
+        purpose,
+        startDate:   item.querySelector(".svc-start").value,
+      };
+    });
+
+    if (!valid) {
+      showMsg("選択したすべてのサービスに用途・理由を入力してください", false);
+      return;
+    }
+
+    setLoading(true);
+    google.script.run
+      .withSuccessHandler(res => {
+        setLoading(false);
+        if (res.ok) {
+          showMsg(`申請が完了しました（申請ID: ${res.requestIds.join(", ")}）`, true);
+          document.getElementById("submitBtn").disabled = true;
+        } else {
+          showMsg(res.error || "送信に失敗しました", false);
+        }
+      })
+      .withFailureHandler(err => {
+        setLoading(false);
+        showMsg("エラー: " + err.message, false);
+      })
+      .submitNewRequest({ applicantName, applicantEmail, targetName, targetDept, targetEmail, services });
+  });
+
+  function setLoading(on) {
+    document.getElementById("loading").style.display = on ? "block" : "none";
+    document.getElementById("submitBtn").disabled = on;
+  }
+
+  function showMsg(text, ok) {
+    const el = document.getElementById("msg");
+    el.textContent = text;
+    el.className = "msg " + (ok ? "ok" : "err");
+    el.style.display = "block";
+    el.scrollIntoView({ behavior: "smooth" });
+  }
+</script>
+</body>
+</html>

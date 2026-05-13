@@ -354,6 +354,10 @@ function renderForm(s) {
       <input id="f-types" class="form-control" value="${s ? esc(s.accountTypes) : ''}" placeholder="例: 一般,管理者,閲覧専用">
       <div class="form-hint">フォームのドロップダウンに使用します</div>
     </div>
+    <div class="form-group">
+      <label class="form-label">承認者メール（空欄の場合はグローバル設定を使用）</label>
+      <input id="f-approver" class="form-control" value="${s ? esc(s.approverEmails) : ''}" placeholder="approver@example.com（カンマ区切りで複数可）">
+    </div>
     <div class="form-check">
       <input type="checkbox" id="f-enabled" ${!s || s.enabled ? 'checked' : ''}>
       <label for="f-enabled" style="font-size:12px;">有効にする（フォームの選択肢に含める）</label>
@@ -378,8 +382,9 @@ function saveService() {
     name,
     category:     val('f-cat'),
     description:  val('f-desc'),
-    accountTypes: val('f-types'),
-    enabled:      document.getElementById('f-enabled').checked,
+    accountTypes:   val('f-types'),
+    approverEmails: val('f-approver'),
+    enabled:        document.getElementById('f-enabled').checked,
   };
 
   const fn = editingSvcId ? 'updateService' : 'addService';

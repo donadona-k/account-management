@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>アカウント削除申請</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Hiragino Sans", "Meiryo", sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      padding: 24px 16px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.15);
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 28px 32px;
+    }
+    h1 { font-size: 1.4rem; color: #d93025; margin-bottom: 20px; }
+    h2 { font-size: 1rem; color: #555; border-left: 4px solid #d93025; padding-left: 10px; margin: 24px 0 12px; }
+    label { display: block; font-size: .85rem; color: #555; margin-bottom: 4px; }
+    input[type=text], input[type=email], textarea {
+      width: 100%; padding: 8px 10px;
+      border: 1px solid #ccc; border-radius: 4px;
+      font-size: .95rem; margin-bottom: 12px;
+    }
+    input[readonly] { background: #f0f4ff; color: #444; cursor: default; }
+
+    /* 検索エリア */
+    .search-row { display: flex; gap: 8px; margin-bottom: 12px; }
+    .search-row input { margin-bottom: 0; flex: 1; }
+    .btn-search {
+      padding: 8px 16px;
+      background: #555; color: #fff;
+      border: none; border-radius: 4px; cursor: pointer;
+      white-space: nowrap; font-size: .9rem;
+    }
+    .btn-search:hover { background: #333; }
+    .target-info { background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; display: none; }
+    .target-info p { font-size: .9rem; margin-bottom: 4px; }
+    .target-info span { font-weight: bold; }
+
+    /* 削除種別 */
+    .delete-type { margin-bottom: 12px; }
+    .delete-type label { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: .95rem; cursor: pointer; }
+    .delete-type input[type=radio] { width: 16px; height: 16px; cursor: pointer; }
+
+    /* サービス選択 */
+    .svc-section { display: none; }
+    .svc-check-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+    .svc-check-item {
+      display: flex; align-items: center; gap: 10px;
+      border: 1px solid #e0e0e0; border-radius: 6px;
+      padding: 8px 12px;
+    }
+    .svc-check-item.checked { border-color: #d93025; background: #fff5f5; }
+    .svc-check-item input[type=checkbox] { width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; }
+    .svc-check-item label { margin: 0; font-size: .9rem; cursor: pointer; }
+    .svc-hint { font-size: .82rem; color: #888; margin-bottom: 12px; }
+
+    /* 送信ボタン */
+    .btn {
+      display: block; width: 100%; padding: 12px;
+      background: #d93025; color: #fff;
+      border: none; border-radius: 6px; font-size: 1rem;
+      cursor: pointer; margin-top: 20px;
+      transition: background .15s;
+    }
+    .btn:hover { background: #b31412; }
+    .btn:disabled { background: #aaa; cursor: default; }
+
+    .msg { margin-top: 16px; padding: 12px; border-radius: 6px; font-size: .9rem; display: none; }
+    .msg.ok  { background: #e6f4ea; color: #137333; }
+    .msg.err { background: #fce8e6; color: #c5221f; }
+    .loading { color: #888; font-size: .9rem; margin-top: 12px; display: none; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>アカウント削除申請</h1>
+
+  <h2>申請者情報</h2>
+  <label>メールアドレス</label>
+  <input type="email" id="applicantEmail" readonly>
+  <div style="display:flex;gap:12px">
+    <div style="flex:1">
+      <label>氏名</label>
+      <input type="text" id="applicantName" readonly>
+    </div>
+    <div style="flex:1">
+      <label>部署</label>
+      <input type="text" id="applicantDept" readonly>
+    </div>
+  </div>
+
+  <h2>削除対象者</h2>
+  <label>対象者のメールアドレス <span style="color:red">*</span></label>
+  <div class="search-row">
+    <input type="email" id="targetEmailInput" placeholder="taro@example.com">
+    <button class="btn-search" id="searchBtn">検索</button>
+  </div>
+  <div class="target-info" id="targetInfo">
+    <p>氏名：<span id="targetName"></span></p>
+    <p>部署：<span id="targetDept"></span></p>
+  </div>
+
+  <h2>削除するサービス</h2>
+  <div class="delete-type">
+    <label><input type="radio" name="deleteType" value="all" id="deleteAll"> すべてのサービスを削除</label>
+    <label><input type="radio" name="deleteType" value="partial" id="deletePartial"> 特定のサービスを選択して削除</label>
+  </div>
+
+  <div class="svc-section" id="svcSection">
+    <p class="svc-hint">※ 検索後にサービス一覧が表示されます</p>
+    <div class="svc-check-list" id="svcCheckList"></div>
+  </div>
+
+  <h2>削除理由</h2>
+  <label>削除理由 <span style="color:red">*</span></label>
+  <textarea id="deleteReason" rows="3" placeholder="退職・異動・権限不要など、削除の理由を記入してください"></textarea>
+
+  <button class="btn" id="submitBtn" disabled>削除申請する</button>
+  <p class="loading" id="loading">送信中...</p>
+  <div class="msg" id="msg"></div>
+</div>
+
+<script>
+  let foundUserId   = null;
+  let foundServices = [];
+
+  // ページロード時：申請者情報を取得
+  document.addEventListener("DOMContentLoaded", () => {
+    google.script.run
+      .withSuccessHandler(info => {
+        document.getElementById("applicantEmail").value = info.email || "";
+        document.getElementById("applicantName").value  = info.name  || "";
+        document.getElementById("applicantDept").value  = info.dept  || "";
+      })
+      .withFailureHandler(err => console.error(err))
+      .getApplicantInfo();
+  });
+
+  // 「検索」ボタン
+  document.getElementById("searchBtn").addEventListener("click", () => {
+    const email = document.getElementById("targetEmailInput").value.trim();
+    if (!email) { showMsg("対象者のメールアドレスを入力してください", false); return; }
+
+    document.getElementById("searchBtn").disabled = true;
+    document.getElementById("searchBtn").textContent = "検索中...";
+
+    google.script.run
+      .withSuccessHandler(res => {
+        document.getElementById("searchBtn").disabled = false;
+        document.getElementById("searchBtn").textContent = "検索";
+
+        if (!res.found) {
+          const msg = res.deleted
+            ? "このユーザーはすでに削除済みです"
+            : "該当するユーザーが見つかりません";
+          showMsg(msg, false);
+          resetTarget();
+          return;
+        }
+
+        foundUserId   = res.userId;
+        foundServices = res.services || [];
+
+        document.getElementById("targetName").textContent = res.name;
+        document.getElementById("targetDept").textContent = res.dept || "（未設定）";
+        document.getElementById("targetInfo").style.display = "block";
+
+        renderServiceChecks(foundServices);
+        document.getElementById("submitBtn").disabled = false;
+        clearMsg();
+      })
+      .withFailureHandler(err => {
+        document.getElementById("searchBtn").disabled = false;
+        document.getElementById("searchBtn").textContent = "検索";
+        showMsg("エラー: " + err.message, false);
+      })
+      .lookupUserByEmail(email);
+  });
+
+  function resetTarget() {
+    foundUserId   = null;
+    foundServices = [];
+    document.getElementById("targetInfo").style.display = "none";
+    document.getElementById("targetName").textContent = "";
+    document.getElementById("targetDept").textContent = "";
+    document.getElementById("svcCheckList").innerHTML = "";
+    document.getElementById("svcSection").style.display = "none";
+    document.getElementById("submitBtn").disabled = true;
+    // ラジオをリセット
+    document.querySelectorAll('input[name="deleteType"]').forEach(r => r.checked = false);
+  }
+
+  function renderServiceChecks(services) {
+    const list = document.getElementById("svcCheckList");
+    list.innerHTML = "";
+    if (services.length === 0) {
+      list.innerHTML = '<p style="color:#888;font-size:.9rem">運用中のサービスがありません</p>';
+      return;
+    }
+    services.forEach(svc => {
+      const item = document.createElement("div");
+      item.className = "svc-check-item";
+      item.dataset.usageId = svc.usageId;
+      item.innerHTML = `
+        <input type="checkbox" id="svc_${svc.usageId}" class="svc-cb">
+        <label for="svc_${svc.usageId}">
+          ${svc.serviceName}（${svc.accountType}）
+          <span style="color:#888;font-size:.82rem"> 利用ID: ${svc.usageId}</span>
+        </label>`;
+      list.appendChild(item);
+      item.querySelector(".svc-cb").addEventListener("change", e => {
+        item.classList.toggle("checked", e.target.checked);
+      });
+    });
+  }
+
+  // 削除種別ラジオ変更
+  document.querySelectorAll('input[name="deleteType"]').forEach(radio => {
+    radio.addEventListener("change", () => {
+      const isPartial = document.getElementById("deletePartial").checked;
+      document.getElementById("svcSection").style.display = isPartial ? "block" : "none";
+
+      // 「すべて」選択時はチェックボックスを非活性
+      const cbs = document.querySelectorAll(".svc-cb");
+      cbs.forEach(cb => {
+        cb.disabled = !isPartial;
+        if (!isPartial) {
+          cb.checked = false;
+          cb.closest(".svc-check-item").classList.remove("checked");
+        }
+      });
+
+      if (isPartial && foundServices.length === 0 && foundUserId) {
+        document.getElementById("svcSection").querySelector(".svc-hint").style.display = "none";
+      }
+    });
+  });
+
+  // 「削除申請する」ボタン
+  document.getElementById("submitBtn").addEventListener("click", () => {
+    if (!foundUserId) { showMsg("対象者を検索してください", false); return; }
+
+    const deleteTypeVal = document.querySelector('input[name="deleteType"]:checked');
+    if (!deleteTypeVal) { showMsg("削除種別を選択してください", false); return; }
+
+    const deleteAll = deleteTypeVal.value === "all";
+    const deleteReason = document.getElementById("deleteReason").value.trim();
+    if (!deleteReason) { showMsg("削除理由を入力してください", false); return; }
+
+    let usageIds = [];
+    if (!deleteAll) {
+      usageIds = [...document.querySelectorAll(".svc-cb:checked")]
+        .map(cb => cb.closest(".svc-check-item").dataset.usageId);
+      if (usageIds.length === 0) {
+        showMsg("削除するサービスを1つ以上選択してください", false);
+        return;
+      }
+    }
+
+    const payload = {
+      applicantName:  document.getElementById("applicantName").value.trim(),
+      applicantEmail: document.getElementById("applicantEmail").value.trim(),
+      targetEmail:    document.getElementById("targetEmailInput").value.trim(),
+      deleteReason,
+      deleteAll,
+      usageIds,
+    };
+
+    setLoading(true);
+    google.script.run
+      .withSuccessHandler(res => {
+        setLoading(false);
+        if (res.ok) {
+          showMsg(`削除申請が完了しました（申請ID: ${res.deleteReqId}）`, true);
+          document.getElementById("submitBtn").disabled = true;
+        } else {
+          showMsg(res.error || "送信に失敗しました", false);
+        }
+      })
+      .withFailureHandler(err => {
+        setLoading(false);
+        showMsg("エラー: " + err.message, false);
+      })
+      .submitDeleteRequest(payload);
+  });
+
+  function setLoading(on) {
+    document.getElementById("loading").style.display = on ? "block" : "none";
+    document.getElementById("submitBtn").disabled = on;
+  }
+
+  function showMsg(text, ok) {
+    const el = document.getElementById("msg");
+    el.textContent = text;
+    el.className = "msg " + (ok ? "ok" : "err");
+    el.style.display = "block";
+    el.scrollIntoView({ behavior: "smooth" });
+  }
+
+  function clearMsg() {
+    const el = document.getElementById("msg");
+    el.style.display = "none";
+  }
+</script>
+</body>
+</html>
