@@ -139,6 +139,10 @@
         document.getElementById("applicantEmail").value = info.email || "";
         document.getElementById("applicantName").value  = info.name  || "";
         document.getElementById("applicantDept").value  = info.dept  || "";
+        if (!info.found) {
+          document.getElementById("applicantName").removeAttribute("readonly");
+          document.getElementById("applicantDept").removeAttribute("readonly");
+        }
       })
       .withFailureHandler(err => console.error(err))
       .getApplicantInfo();
